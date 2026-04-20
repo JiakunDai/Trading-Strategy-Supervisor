@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交易纪律检查工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a2e; color: #eee; min-height: 100vh; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        header { background: #16213e; padding: 20px 0; margin-bottom: 30px; border-bottom: 2px solid #0f3460; }
+        h1 { font-size: 28px; color: #e94560; text-align: center; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 30px; justify-content: center; flex-wrap: wrap; }
+        .tab { padding: 12px 24px; background: #0f3460; border: none; color: #fff; cursor: pointer; border-radius: 8px; font-size: 16px; transition: all 0.3s; }
+        .tab.active { background: #e94560; }
+        .tab:hover { background: #1a1a5e; }
+        .panel { display: none; }
+        .panel.active { display: block; }
+        
+        .api-key-card { background: #0f3460; border-radius: 12px; padding: 20px; margin-bottom: 15px; border: 1px solid #1a1a5e; }
+        .api-key-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .api-key-name { font-size: 20px; font-weight: bold; color: #0984e3; }
+        .api-key-priority { background: #fdcb6e; color: #1a1a2e; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+        .api-key-input { width: 100%; padding: 12px; background: #16213e; border: 1px solid #1a1a5e; border-radius: 6px; color: white; font-size: 14px; font-family: monospace; }
+        .api-key-actions { margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end; }
+        .btn-save-api { background: #00b894; padding: 10px 20px; border: none; border-radius: 6px; color: white; cursor: pointer; }
+        .api-key-help { color: #aaa; font-size: 13px; margin-top: 8px; }
+        
+        .add-btn { background: #00b894; padding: 12px 24px; border: none; border-radius: 8px; color: white; font-size: 16px; cursor: pointer; margin-bottom: 20px; }
+        .add-btn:hover { background: #00a085; }
+        .holdings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+        .holding-card { background: #0f3460; border-radius: 12px; padding: 20px; border: 1px solid #1a1a5e; }
+        .holding-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .holding-symbol { font-size: 24px; font-weight: bold; color: #e94560; }
+        .holding-type { background: #e94560; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+        .holding-type.conservative { background: #00b894; }
+        .holding-type.core { background: #0984e3; }
+        .holding-type.cash { background: #fdcb6e; color: #1a1a2e; }
+        .holding-detail { margin: 8px 0; color: #aaa; display: flex; justify-content: space-between; }
+        .holding-detail span { color: #fff; }
+        .holding-detail .positive { color: #00b894; }
+        .holding-detail .negative { color: #e94560; }
+        .holding-actions { margin-top: 15px; display: flex; gap: 10px; }
+        .btn-edit { background: #0984e3; padding: 8px 16px; border: none; border-radius: 6px; color: white; cursor: pointer; }
+        .btn-delete { background: #e94560; padding: 8px 16px; border: none; border-radius: 6px; color: white; cursor: pointer; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: #16213e; padding: 30px; border-radius: 12px; width: 90%; max-width: 500px; }
+        .modal-title { font-size: 24px; margin-bottom: 20px; color: #e94560; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #aaa; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; background: #0f3460; border: 1px solid #1a1a5e; border-radius: 6px; color: white; font-size: 16px; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+        .btn-cancel { background: #636e72; padding: 12px 24px; border: none; border-radius: 6px; color: white; cursor: pointer; }
+        .btn-save { background: #00b894; padding: 12px 24px; border: none; border-radius: 6px; color: white; cursor: pointer; }
+        
+        .check-section { text-align: center; margin-bottom: 30px; }
+        .btn-check { background: #e94560; padding: 15px 40px; font-size: 18px; border: none; border-radius: 8px; color: white; cursor: pointer; }
+        .btn-check:hover { background: #d63031; }
+        .btn-check:disabled { background: #636e72; cursor: not-allowed; }
+        
+        .report { background: #0f3460; border-radius: 12px; padding: 30px; margin-top: 30px; }
+        .report-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1a1a5e; padding-bottom: 20px; }
+        .report-title { font-size: 24px; color: #e94560; margin-bottom: 10px; }
+        .report-date { color: #aaa; }
+        
+        .report-section { margin-bottom: 25px; }
+        .report-section h3 { margin-bottom: 15px; font-size: 18px; }
+        .report-section.must-do h3 { color: #e94560; }
+        .report-section.forbidden h3 { color: #fdcb6e; }
+        .report-section.no-action h3 { color: #00b894; }
+        
+        .report-item { padding: 12px 15px; background: #16213e; border-radius: 6px; margin: 8px 0; }
+        
+        .portfolio-summary { background: #16213e; border-radius: 8px; padding: 20px; margin-top: 30px; }
+        .portfolio-summary h3 { margin-bottom: 15px; color: #0984e3; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
+        .summary-item { padding: 15px; background: #0f3460; border-radius: 8px; text-align: center; }
+        .summary-label { color: #aaa; font-size: 14px; }
+        .summary-value { font-size: 22px; color: #00b894; margin-top: 5px; }
+        .summary-value.positive { color: #00b894; }
+        .summary-value.negative { color: #e94560; }
+        
+        .loading { text-align: center; padding: 40px; }
+        .spinner { border: 4px solid #0f3460; border-top: 4px solid #e94560; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; margin-top: 20px; }
+        .chart-card { background: #0f3460; border-radius: 12px; padding: 20px; border: 1px solid #1a1a5e; }
+        .chart-card h3 { color: #0984e3; margin-bottom: 15px; text-align: center; }
+        .chart-container { position: relative; height: 300px; }
+        
+        .history-card { background: #0f3460; border-radius: 12px; padding: 20px; margin-bottom: 15px; border: 1px solid #1a1a5e; }
+        .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .history-date { font-size: 20px; font-weight: bold; color: #e94560; }
+        .history-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 15px; }
+        .history-summary-item { padding: 10px; background: #16213e; border-radius: 6px; text-align: center; }
+        .history-summary-label { color: #aaa; font-size: 12px; }
+        .history-summary-value { color: #fff; font-size: 18px; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>📊 交易纪律检查工具</h1>
+        </div>
+    </header>
+    
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" data-tab="holdings">持仓管理</button>
+            <button class="tab" data-tab="dashboard">持仓看板</button>
+            <button class="tab" data-tab="check">纪律检查</button>
+            <button class="tab" data-tab="api-config">API 配置</button>
+            <button class="tab" data-tab="history">历史记录</button>
+        </div>
+        
+        <!-- Holdings Panel -->
+        <div id="holdings-panel" class="panel active">
+            <button class="add-btn" onclick="openModal()">+ 添加持仓</button>
+            <div id="holdings-list" class="holdings-grid"></div>
+        </div>
+        
+        <!-- Dashboard Panel -->
+        <div id="dashboard-panel" class="panel">
+            <div class="dashboard">
+                <div class="chart-card">
+                    <h3>📊 仓位类型分布</h3>
+                    <div class="chart-container">
+                        <canvas id="typeChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>📈 股票占比</h3>
+                    <div class="chart-container">
+                        <canvas id="stockChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Check Panel -->
+        <div id="check-panel" class="panel">
+            <div class="check-section">
+                <button id="btn-run-check" class="btn-check" onclick="runCheck()">🔍 运行周度纪律检查</button>
+            </div>
+            <div id="check-result"></div>
+        </div>
+        
+        <!-- API Config Panel -->
+        <div id="api-config-panel" class="panel">
+            <div style="margin-bottom: 20px;">
+                <h2 style="color: #0984e3; margin-bottom: 10px;">🔑 数据源 API Key 配置</h2>
+                <p style="color: #aaa;">按照优先级配置 API Key，优先级 1 失败会自动尝试优先级 2，以此类推。</p>
+            </div>
+            <div id="api-keys-list"></div>
+        </div>
+        
+        <!-- History Panel -->
+        <div id="history-panel" class="panel">
+            <div id="history-list"></div>
+        </div>
+    </div>
+    
+    <!-- Modal -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h2 class="modal-title" id="modal-title">添加持仓</h2>
+            <form id="holding-form">
+                <input type="hidden" id="holding-id">
+                <div class="form-group">
+                    <label>股票代码 (Symbol)</label>
+                    <input type="text" id="symbol" placeholder="例如: AAPL, MSFT, VOO" required oninput="this.value = this.value.toUpperCase()">
+                </div>
+                <div class="form-group">
+                    <label>名称</label>
+                    <input type="text" id="name" placeholder="例如: 苹果公司">
+                </div>
+                <div class="form-group">
+                    <label>仓位类型</label>
+                    <select id="type" required>
+                        <option value="conservative">保守型仓位</option>
+                        <option value="core">核心型仓位</option>
+                        <option value="cash">现金仓位</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>持有数量</label>
+                    <input type="number" id="quantity" step="0.01" placeholder="例如: 100" required>
+                </div>
+                <div class="form-group">
+                    <label>成本价</label>
+                    <input type="number" id="costPrice" step="0.01" placeholder="例如: 150.50" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-cancel" onclick="closeModal()">取消</button>
+                    <button type="submit" class="btn-save">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        let holdings = [];
+        let latestReport = null;
+        let typeChart = null;
+        let stockChart = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initTabs();
+            loadHoldings();
+            loadAPIKeys();
+            loadHistory();
+        });
+
+        function initTabs() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById(tab.dataset.tab + '-panel').classList.add('active');
+                    
+                    if (tab.dataset.tab === 'dashboard' && latestReport) {
+                        renderCharts(latestReport);
+                    }
+                });
+            });
+        }
+
+        async function loadHoldings() {
+            try {
+                const res = await fetch(`${API_BASE}/holdings`);
+                holdings = await res.json();
+                renderHoldings();
+            } catch (e) {
+                console.error('Error loading holdings:', e);
+            }
+        }
+
+        function renderHoldings() {
+            const list = document.getElementById('holdings-list');
+            if (holdings.length === 0) {
+                list.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #aaa;">暂无持仓，点击上方按钮添加</div>';
+                return;
+            }
+            list.innerHTML = holdings.map(h => {
+                const currentPrice = h.lastCheckPrice;
+                const costPrice = h.costPrice;
+                let returnPct = null;
+                let returnClass = '';
+                
+                if (currentPrice) {
+                    returnPct = ((currentPrice - costPrice) / costPrice) * 100;
+                    returnClass = returnPct >= 0 ? 'positive' : 'negative';
+                }
+                
+                return `
+                <div class="holding-card">
+                    <div class="holding-header">
+                        <div class="holding-symbol">${h.symbol}</div>
+                        <div class="holding-type ${h.type}">${getTypeLabel(h.type)}</div>
+                    </div>
+                    <div class="holding-detail">
+                        <span>名称:</span>
+                        <span>${h.name || '-'}</span>
+                    </div>
+                    <div class="holding-detail">
+                        <span>数量:</span>
+                        <span>${h.quantity}</span>
+                    </div>
+                    <div class="holding-detail">
+                        <span>成本价:</span>
+                        <span>$${costPrice.toFixed(2)}</span>
+                    </div>
+                    ${currentPrice ? `
+                    <div class="holding-detail">
+                        <span>上次检查价:</span>
+                        <span>$${currentPrice.toFixed(2)}</span>
+                    </div>
+                    <div class="holding-detail">
+                        <span>上次检查日期:</span>
+                        <span>${h.lastCheckDate}</span>
+                    </div>
+                    <div class="holding-detail">
+                        <span>盈亏:</span>
+                        <span class="${returnClass}">${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(1)}%</span>
+                    </div>
+                    ` : ''}
+                    <div class="holding-actions">
+                        <button class="btn-edit" onclick="editHolding(${h.id})">编辑</button>
+                        <button class="btn-delete" onclick="deleteHolding(${h.id})">删除</button>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        function getTypeLabel(type) {
+            const labels = { conservative: '保守', core: '核心', cash: '现金' };
+            return labels[type] || type;
+        }
+
+        function openModal(holding = null) {
+            document.getElementById('modal').classList.add('active');
+            document.getElementById('modal-title').textContent = holding ? '编辑持仓' : '添加持仓';
+            if (holding) {
+                document.getElementById('holding-id').value = holding.id;
+                document.getElementById('symbol').value = holding.symbol;
+                document.getElementById('name').value = holding.name || '';
+                document.getElementById('type').value = holding.type;
+                document.getElementById('quantity').value = holding.quantity;
+                document.getElementById('costPrice').value = holding.costPrice;
+            } else {
+                document.getElementById('holding-form').reset();
+                document.getElementById('holding-id').value = '';
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+        }
+
+        document.getElementById('holding-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('holding-id').value;
+            const data = {
+                symbol: document.getElementById('symbol').value,
+                name: document.getElementById('name').value,
+                type: document.getElementById('type').value,
+                quantity: parseFloat(document.getElementById('quantity').value),
+                costPrice: parseFloat(document.getElementById('costPrice').value)
+            };
+            try {
+                const url = id ? `${API_BASE}/holdings/${id}` : `${API_BASE}/holdings`;
+                const method = id ? 'PUT' : 'POST';
+                await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                closeModal();
+                loadHoldings();
+            } catch (e) {
+                console.error('Error saving holding:', e);
+            }
+        });
+
+        function editHolding(id) {
+            const holding = holdings.find(h => h.id === id);
+            if (holding) openModal(holding);
+        }
+
+        async function deleteHolding(id) {
+            if (!confirm('确定要删除这个持仓吗？')) return;
+            try {
+                await fetch(`${API_BASE}/holdings/${id}`, { method: 'DELETE' });
+                loadHoldings();
+            } catch (e) {
+                console.error('Error deleting holding:', e);
+            }
+        }
+
+        async function runCheck() {
+            const btn = document.getElementById('btn-run-check');
+            const resultDiv = document.getElementById('check-result');
+            btn.disabled = true;
+            resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>正在获取数据并执行检查...</p></div>';
+            
+            try {
+                const res = await fetch(`${API_BASE}/check`, { method: 'POST' });
+                latestReport = await res.json();
+                renderReport(latestReport);
+                loadHoldings();
+            } catch (e) {
+                resultDiv.innerHTML = '<p style="color: #e94560; text-align: center;">检查失败，请确保后端服务正在运行</p>';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function renderReport(report) {
+            const resultDiv = document.getElementById('check-result');
+            const totalReturnClass = report.totalReturn >= 0 ? 'positive' : 'negative';
+            
+            resultDiv.innerHTML = `
+                <div class="report">
+                    <div class="report-header">
+                        <h2 class="report-title">📋 ${report.date} 第${report.week}周 交易纪律检查报告</h2>
+                        <p class="report-date">纪律检查完成。除非触线，否则股价与你无关。</p>
+                    </div>
+                    
+                    ${report.mustDo.length > 0 ? `
+                        <div class="report-section must-do">
+                            <h3>【必须执行】</h3>
+                            ${report.mustDo.map(item => `<div class="report-item">${item}</div>`).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    ${report.forbidden.length > 0 ? `
+                        <div class="report-section forbidden">
+                            <h3>【禁止操作】</h3>
+                            ${report.forbidden.map(item => `<div class="report-item">${item}</div>`).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    ${report.noAction.length > 0 ? `
+                        <div class="report-section no-action">
+                            <h3>【本周无操作】</h3>
+                            ${report.noAction.map(item => `<div class="report-item">${item}</div>`).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    <div class="portfolio-summary">
+                        <h3>📊 持仓概览</h3>
+                        <div class="summary-grid">
+                            <div class="summary-item">
+                                <div class="summary-label">总市值</div>
+                                <div class="summary-value">$${report.totalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                            </div>
+                            <div class="summary-item">
+                                <div class="summary-label">总成本</div>
+                                <div class="summary-value">$${report.totalCost.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                            </div>
+                            <div class="summary-item">
+                                <div class="summary-label">总盈亏</div>
+                                <div class="summary-value ${totalReturnClass}">${report.totalReturn >= 0 ? '+' : ''}$${report.totalReturn.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                            </div>
+                            <div class="summary-item">
+                                <div class="summary-label">总盈亏率</div>
+                                <div class="summary-value ${totalReturnClass}">${report.totalReturnPct >= 0 ? '+' : ''}${report.totalReturnPct.toFixed(2)}%</div>
+                            </div>
+                            <div class="summary-item">
+                                <div class="summary-label">持仓数量</div>
+                                <div class="summary-value">${report.holdings.length}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="portfolio-summary">
+                        <h3>📈 持仓详情</h3>
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                                <thead>
+                                    <tr style="background: #0f3460;">
+                                        <th style="padding: 12px; text-align: left;">股票</th>
+                                        <th style="padding: 12px; text-align: right;">现价</th>
+                                        <th style="padding: 12px; text-align: right;">成本</th>
+                                        <th style="padding: 12px; text-align: right;">市值</th>
+                                        <th style="padding: 12px; text-align: right;">盈亏</th>
+                                        <th style="padding: 12px; text-align: center;">数据来源</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${report.holdings.filter(h => h.type !== 'cash').map(h => {
+                                        const returnClass = h.returnPct >= 0 ? 'color: #00b894;' : 'color: #e94560;';
+                                        const sourceClass = h.dataSource === 'Mock Data' ? 'background: #fdcb6e; color: #1a1a2e; padding: 2px 8px; border-radius: 4px; font-size: 12px;' : 'background: #00b894; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px;';
+                                        return `
+                                            <tr style="border-bottom: 1px solid #1a1a5e;">
+                                                <td style="padding: 12px;"><strong>${h.symbol}</strong></td>
+                                                <td style="padding: 12px; text-align: right;">$${h.currentPrice.toFixed(2)}</td>
+                                                <td style="padding: 12px; text-align: right;">$${h.costPrice.toFixed(2)}</td>
+                                                <td style="padding: 12px; text-align: right;">$${h.value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                                <td style="padding: 12px; text-align: right; ${returnClass}">${h.returnPct >= 0 ? '+' : ''}$${h.returnValue.toFixed(2)} (${h.returnPct.toFixed(1)}%)</td>
+                                                <td style="padding: 12px; text-align: center;"><span style="${sourceClass}">${h.dataSource}</span></td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderCharts(report) {
+            const typeCtx = document.getElementById('typeChart').getContext('2d');
+            const stockCtx = document.getElementById('stockChart').getContext('2d');
+            
+            const typeLabels = { conservative: '保守型', core: '核心型', cash: '现金' };
+            const typeColors = { conservative: '#00b894', core: '#0984e3', cash: '#fdcb6e' };
+            
+            const typeData = Object.entries(report.typeDistribution).map(([type, value]) => ({
+                label: typeLabels[type] || type,
+                value: value,
+                color: typeColors[type] || '#e94560'
+            }));
+            
+            if (typeChart) typeChart.destroy();
+            typeChart = new Chart(typeCtx, {
+                type: 'pie',
+                data: {
+                    labels: typeData.map(d => d.label),
+                    datasets: [{
+                        data: typeData.map(d => d.value),
+                        backgroundColor: typeData.map(d => d.color),
+                        borderWidth: 2,
+                        borderColor: '#1a1a2e'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#eee' }
+                        }
+                    }
+                }
+            });
+            
+            const stockData = Object.entries(report.stockDistribution)
+                .sort((a, b) => b[1] - a[1]);
+            
+            const stockColors = ['#e94560', '#0984e3', '#00b894', '#fdcb6e', '#6c5ce7', '#a29bfe', '#fd79a8', '#00cec9'];
+            
+            if (stockChart) stockChart.destroy();
+            stockChart = new Chart(stockCtx, {
+                type: 'pie',
+                data: {
+                    labels: stockData.map(d => d[0]),
+                    datasets: [{
+                        data: stockData.map(d => d[1]),
+                        backgroundColor: stockData.map((_, i) => stockColors[i % stockColors.length]),
+                        borderWidth: 2,
+                        borderColor: '#1a1a2e'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#eee' }
+                        }
+                    }
+                }
+            });
+        }
+
+        const sourcesConfig = [
+            { name: 'Alpha Vantage', priority: 1, help: 'https://www.alphavantage.co/support/#api-key - 免费，每天 25 次请求' },
+            { name: 'Polygon.io', priority: 2, help: 'https://polygon.io/ - 免费套餐，每分钟 5 次请求' },
+            { name: 'Finnhub', priority: 3, help: 'https://finnhub.io/ - 免费套餐，每秒 1 次请求' }
+        ];
+
+        async function loadAPIKeys() {
+            try {
+                const res = await fetch(`${API_BASE}/api-keys`);
+                const keys = await res.json();
+                renderAPIKeys(keys);
+            } catch (e) {
+                console.error('Error loading API keys:', e);
+                renderAPIKeys({});
+            }
+        }
+
+        function renderAPIKeys(savedKeys) {
+            const list = document.getElementById('api-keys-list');
+            list.innerHTML = sourcesConfig.map(source => `
+                <div class="api-key-card">
+                    <div class="api-key-header">
+                        <div class="api-key-name">${source.name}</div>
+                        <div class="api-key-priority">优先级 ${source.priority}</div>
+                    </div>
+                    <input type="text" 
+                           class="api-key-input" 
+                           id="api-key-${source.name.replace(/\s+/g, '-')}"
+                           placeholder="输入你的 API Key"
+                           value="${savedKeys[source.name] || ''}">
+                    <div class="api-key-help">${source.help}</div>
+                    <div class="api-key-actions">
+                        <button class="btn-save-api" onclick="saveAPIKey('${source.name}')">保存</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function saveAPIKey(sourceName) {
+            const inputId = 'api-key-' + sourceName.replace(/\s+/g, '-');
+            const apiKey = document.getElementById(inputId).value;
+            
+            try {
+                await fetch(`${API_BASE}/api-keys`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sourceName: sourceName,
+                        apiKey: apiKey
+                    })
+                });
+                alert('API Key 保存成功！');
+            } catch (e) {
+                console.error('Error saving API key:', e);
+                alert('保存失败，请稍后重试');
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch(`${API_BASE}/reports`);
+                const reports = await res.json();
+                renderHistory(reports);
+            } catch (e) {
+                console.error('Error loading history:', e);
+            }
+        }
+
+        function renderHistory(reports) {
+            const list = document.getElementById('history-list');
+            if (reports.length === 0) {
+                list.innerHTML = '<div style="text-align: center; padding: 40px; color: #aaa;">暂无历史记录</div>';
+                return;
+            }
+            
+            list.innerHTML = reports.map(r => {
+                try {
+                    const content = eval('(' + r.content + ')');
+                    const returnClass = content.totalReturn >= 0 ? 'color: #00b894;' : 'color: #e94560;';
+                    return `
+                        <div class="history-card">
+                            <div class="history-header">
+                                <div class="history-date">📋 ${r.date}</div>
+                            </div>
+                            <div class="history-summary">
+                                <div class="history-summary-item">
+                                    <div class="history-summary-label">总市值</div>
+                                    <div class="history-summary-value">$${content.totalValue.toLocaleString('en-US', {maximumFractionDigits: 2})}</div>
+                                </div>
+                                <div class="history-summary-item">
+                                    <div class="history-summary-label">总成本</div>
+                                    <div class="history-summary-value">$${content.totalCost.toLocaleString('en-US', {maximumFractionDigits: 2})}</div>
+                                </div>
+                                <div class="history-summary-item">
+                                    <div class="history-summary-label">总盈亏</div>
+                                    <div class="history-summary-value" style="${returnClass}">${content.totalReturn >= 0 ? '+' : ''}$${content.totalReturn.toLocaleString('en-US', {maximumFractionDigits: 2})}</div>
+                                </div>
+                                <div class="history-summary-item">
+                                    <div class="history-summary-label">总盈亏率</div>
+                                    <div class="history-summary-value" style="${returnClass}">${content.totalReturnPct >= 0 ? '+' : ''}${content.totalReturnPct.toFixed(2)}%</div>
+                                </div>
+                            </div>
+                            ${content.mustDo.length > 0 ? `
+                                <div style="margin-top: 15px; padding: 15px; background: #16213e; border-radius: 8px;">
+                                    <h4 style="color: #e94560; margin-bottom: 10px;">【必须执行】</h4>
+                                    ${content.mustDo.map(item => `<div style="padding: 8px 0;">${item}</div>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                } catch (e) {
+                    return `
+                        <div class="history-card">
+                            <div class="history-header">
+                                <div class="history-date">📋 ${r.date}</div>
+                            </div>
+                            <pre style="font-size: 12px; color: #aaa; margin-top: 10px; overflow: auto;">${r.content}</pre>
+                        </div>
+                    `;
+                }
+            }).join('');
+        }
+    </script>
+</body>
+</html>
